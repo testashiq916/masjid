@@ -26,6 +26,11 @@ $stmt = db()->query("SELECT COUNT(*) as cnt, COALESCE(SUM(net_salary), 0) as tot
                      FROM salary_sheet WHERE status = 'pending'");
 $pendingSalary = $stmt->fetch();
 
+// Pending approvals
+$pendingApprovalCount = (int)db()->query(
+    "SELECT COUNT(*) FROM payments WHERE approval_status='pending_approval' AND deleted_at IS NULL"
+)->fetchColumn();
+
 // Recent receipts
 $stmt = db()->query("SELECT r.*, ic.category_name FROM receipts r
                      LEFT JOIN income_categories ic ON ic.id = r.category_id
@@ -172,6 +177,19 @@ require_once __DIR__ . '/templates/header.php';
             </div>
         </div>
     </div>
+    <?php if ($pendingApprovalCount > 0 && in_array(currentUserRole(), [ROLE_ADMIN, ROLE_ACCOUNTANT, ROLE_COMMITTEE])): ?>
+    <div class="col-6 col-md-3">
+        <a href="<?= BASE_PATH ?>/modules/expenses/pending_approvals.php" class="text-decoration-none">
+            <div class="card stat-card shadow-sm h-100 border-warning">
+                <div class="card-body">
+                    <div class="text-muted small mb-1"><i class="bi bi-shield-exclamation text-warning me-1"></i>Pending Approvals</div>
+                    <div class="fw-bold fs-5 text-warning"><?= $pendingApprovalCount ?> voucher(s)</div>
+                    <div class="text-muted" style="font-size:0.75rem;">Click to review</div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <?php endif; ?>
 </div>
 
 <!-- Chart + Surplus/Deficit -->

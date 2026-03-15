@@ -10,6 +10,30 @@
         </a>
 
         <div class="d-flex align-items-center ms-auto gap-2">
+            <!-- Language Switcher -->
+            <?php $currentLang = $_SESSION['lang'] ?? 'en'; ?>
+            <div class="dropdown">
+                <button class="btn btn-primary" type="button" data-bs-toggle="dropdown"
+                        title="Language / ഭാഷ" style="font-size:1rem;min-width:38px;">
+                    <?= $currentLang === 'ml' ? 'മ' : 'A' ?>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow">
+                    <li><h6 class="dropdown-header">Language / ഭാഷ</h6></li>
+                    <li>
+                        <a class="dropdown-item <?= $currentLang === 'en' ? 'active' : '' ?>"
+                           href="<?= BASE_PATH ?>/pages/set_language.php?lang=en">
+                            🇬🇧 English
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item <?= $currentLang === 'ml' ? 'active' : '' ?>"
+                           href="<?= BASE_PATH ?>/pages/set_language.php?lang=ml">
+                            🇮🇳 മലയാളം
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
             <!-- Notifications -->
             <div class="dropdown">
                 <button class="btn btn-primary position-relative" type="button" data-bs-toggle="dropdown">

@@ -100,6 +100,19 @@ function isActiveSection(array $dirs, string $current): string {
                         <li><a class="nav-link small <?= isActiveMenu(['expense_categories.php'], $currentPage) ?>"
                                href="<?= BASE_PATH ?>/modules/expenses/expense_categories.php">
                             <i class="bi bi-tags me-2"></i>Categories</a></li>
+                        <?php if (getSetting('approval_enabled') === '1'): ?>
+                        <li>
+                            <a class="nav-link small <?= isActiveMenu(['pending_approvals.php'], $currentPage) ?>"
+                               href="<?= BASE_PATH ?>/modules/expenses/pending_approvals.php">
+                                <i class="bi bi-shield-check me-2 text-warning"></i>Approvals
+                                <?php
+                                $pendingApprCnt = (int)db()->query("SELECT COUNT(*) FROM payments WHERE approval_status='pending_approval' AND deleted_at IS NULL")->fetchColumn();
+                                if ($pendingApprCnt > 0): ?>
+                                <span class="badge bg-danger ms-1"><?= $pendingApprCnt ?></span>
+                                <?php endif; ?>
+                            </a>
+                        </li>
+                        <?php endif; ?>
                     </ul>
                 </div>
             </li>
@@ -218,6 +231,14 @@ function isActiveSection(array $dirs, string $current): string {
                             <i class="bi bi-calendar-range me-2"></i>Financial Years</a></li>
                         <li><a class="nav-link small" href="<?= BASE_PATH ?>/modules/admin/settings.php">
                             <i class="bi bi-sliders me-2"></i>Settings</a></li>
+                        <li><a class="nav-link small <?= isActiveMenu(['sms_settings.php'], $currentPage) ?>"
+                               href="<?= BASE_PATH ?>/modules/admin/sms_settings.php">
+                            <i class="bi bi-chat-dots me-2"></i>SMS Settings</a></li>
+                        <li><a class="nav-link small <?= isActiveMenu(['qr_settings.php'], $currentPage) ?>"
+                               href="<?= BASE_PATH ?>/modules/admin/qr_settings.php">
+                            <i class="bi bi-qr-code me-2 text-success"></i>QR & UPI</a></li>
+                        <li><a class="nav-link small" href="<?= BASE_PATH ?>/public/qr_donation.php" target="_blank">
+                            <i class="bi bi-box-arrow-up-right me-2 text-success"></i>QR Donation Page</a></li>
                         <li><a class="nav-link small" href="<?= BASE_PATH ?>/modules/admin/audit_logs.php">
                             <i class="bi bi-clock-history me-2"></i>Audit Logs</a></li>
                     </ul>

@@ -40,22 +40,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo = db();
                 $pdo->beginTransaction();
 
+                // Determine approval status
+                $approvalEnabled   = getSetting('approval_enabled') === '1';
+                $approvalThreshold = (float)(getSetting('approval_threshold') ?: 5000);
+                $approvalStatus    = 'approved';
+                if ($approvalEnabled && $amount >= $approvalThreshold) {
+                    $approvalStatus = 'pending_approval';
+                }
+
                 // 1. Insert into payments
                 $stmt = $pdo->prepare("
                     INSERT INTO payments
                         (voucher_no, date, payee_name, category_id, account_id,
                          payment_mode, cheque_no, bank_ref, amount, remarks,
-                         approved_by, created_by, created_at)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,NOW())
+                         approved_by, approval_status, created_by, created_at)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())
                 ");
                 $stmt->execute([
                     $voucherNo, $date, $payeeName, $categoryId, $accountId,
                     $paymentMode, $chequeNo ?: null, $bankRef ?: null,
                     $amount, $remarks,
                     $approvedBy > 0 ? $approvedBy : null,
+                    $approvalStatus,
                     $createdBy
                 ]);
                 $newId = (int)$pdo->lastInsertId();
+
+                // Create approval request record if pending
+                if ($approvalStatus === 'pending_approval') {
+                    $pdo->prepare("
+                        INSERT INTO payment_approvals (payment_id, requested_by, status, requested_at)
+                        VALUES (?, ?, 'pending', NOW())
+                    ")->execute([$newId, $createdBy]);
+                }
 
                 // 2. Get expense category COA account
                 $catStmt = $pdo->prepare("SELECT category_name, account_id FROM expense_categories WHERE id = ?");

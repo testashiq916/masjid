@@ -167,7 +167,16 @@ require_once __DIR__ . '/../../templates/header.php';
                             <td class="text-end fw-semibold text-danger">
                                 <?= number_format($p['amount'], 2) ?>
                             </td>
-                            <td class="text-muted small"><?= htmlspecialchars($p['approved_by_name'] ?? '-') ?></td>
+                            <td>
+                                <?php if (!empty($p['approval_status']) && $p['approval_status'] !== 'approved'): ?>
+                                <?php $asc = ['pending_approval'=>'warning','rejected'=>'danger','draft'=>'secondary']; ?>
+                                <span class="badge bg-<?= $asc[$p['approval_status']] ?? 'secondary' ?> text-capitalize">
+                                    <?= str_replace('_', ' ', $p['approval_status']) ?>
+                                </span>
+                                <?php else: ?>
+                                <span class="text-muted small"><?= htmlspecialchars($p['approved_by_name'] ?? '-') ?></span>
+                                <?php endif; ?>
+                            </td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm">
                                     <a href="<?= BASE_PATH ?>/modules/expenses/view_payment.php?id=<?= $p['id'] ?>"

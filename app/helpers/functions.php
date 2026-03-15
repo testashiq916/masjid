@@ -234,3 +234,8 @@ function paginate(int $total, int $perPage = 20, int $currentPage = 1): array {
         'offset'       => $offset,
     ];
 }
+
+// Load language helper if not already loaded
+if (!function_exists('__')) {
+    require_once __DIR__ . '/lang.php';
+}
