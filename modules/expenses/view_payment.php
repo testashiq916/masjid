@@ -1,46 +1,91 @@
 <?php
-$pageTitle = 'View Payment';
+$pageTitle = 'View Payment Voucher';
 require_once __DIR__ . '/../../app/middleware/auth_check.php';
 requireLogin();
 
-$id = (int)($_GET['id'] ?? 0);
-if (!$id) { setFlash('danger', 'Invalid request.'); redirect(BASE_PATH . '/modules/expenses/payment_list.php'); }
+// ── Number to Indian English words ────────────────────────────
+function numberToWords(float $number): string {
+    $number = abs(round($number, 2));
+    $rupees = (int)$number;
+    $paise  = (int)round(($number - $rupees) * 100);
 
-$stmt = db()->prepare("SELECT p.*, ec.category_name, coa.account_name, u.name as approver_name, cu.name as created_by_name
-    FROM payments p
-    LEFT JOIN expense_categories ec ON ec.id=p.category_id
-    LEFT JOIN chart_of_accounts coa ON coa.id=p.account_id
-    LEFT JOIN users u ON u.id=p.approved_by
-    LEFT JOIN users cu ON cu.id=p.created_by
-    WHERE p.id=? AND p.deleted_at IS NULL");
-$stmt->execute([$id]);
-$payment = $stmt->fetch();
-if (!$payment) { setFlash('danger', 'Payment not found.'); redirect(BASE_PATH . '/modules/expenses/payment_list.php'); }
+    $ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+             'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
+             'Seventeen', 'Eighteen', 'Nineteen'];
+    $tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
 
-$profile = getMasjidProfile();
+    function convertHundreds(int $n, array $ones, array $tens): string {
+        $result = '';
+        if ($n >= 100) {
+            $result .= $ones[(int)($n / 100)] . ' Hundred ';
+            $n %= 100;
+        }
+        if ($n >= 20) {
+            $result .= $tens[(int)($n / 10)] . ' ';
+            $n %= 10;
+        }
+        if ($n > 0) {
+            $result .= $ones[$n] . ' ';
+        }
+        return $result;
+    }
 
-function numberToWords(float $num): string {
-    $ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine',
-             'Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen',
-             'Seventeen','Eighteen','Nineteen'];
-    $tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
-    if ($num == 0) return 'Zero';
-    $intPart  = (int)$num;
-    $fracPart = round(($num - $intPart) * 100);
-    $convert = function($n) use (&$convert, $ones, $tens) {
-        if ($n < 20) return $ones[$n];
-        if ($n < 100) return $tens[(int)($n/10)] . ($n%10 ? ' ' . $ones[$n%10] : '');
-        if ($n < 1000) return $ones[(int)($n/100)] . ' Hundred' . ($n%100 ? ' ' . $convert($n%100) : '');
-        if ($n < 100000) return $convert((int)($n/1000)) . ' Thousand' . ($n%1000 ? ' ' . $convert($n%1000) : '');
-        if ($n < 10000000) return $convert((int)($n/100000)) . ' Lakh' . ($n%100000 ? ' ' . $convert($n%100000) : '');
-        return $convert((int)($n/10000000)) . ' Crore' . ($n%10000000 ? ' ' . $convert($n%10000000) : '');
-    };
-    $words = $convert($intPart) . ' Rupees';
-    if ($fracPart > 0) $words .= ' and ' . $convert($fracPart) . ' Paise';
+    function convertIndian(int $n, array $ones, array $tens): string {
+        if ($n === 0) return 'Zero';
+        $result = '';
+        if ($n >= 10000000) {
+            $result .= convertHundreds((int)($n / 10000000), $ones, $tens) . 'Crore ';
+            $n %= 10000000;
+        }
+        if ($n >= 100000) {
+            $result .= convertHundreds((int)($n / 100000), $ones, $tens) . 'Lakh ';
+            $n %= 100000;
+        }
+        if ($n >= 1000) {
+            $result .= convertHundreds((int)($n / 1000), $ones, $tens) . 'Thousand ';
+            $n %= 1000;
+        }
+        $result .= convertHundreds($n, $ones, $tens);
+        return trim($result);
+    }
+
+    $words = convertIndian($rupees, $ones, $tens) . ' Rupees';
+    if ($paise > 0) {
+        $words .= ' and ' . convertIndian($paise, $ones, $tens) . ' Paise';
+    }
     return $words . ' Only';
 }
 
-$autoPrint = isset($_GET['print']);
+// ── Load payment ───────────────────────────────────────────────
+$id = (int)($_GET['id'] ?? 0);
+if ($id <= 0) {
+    setFlash('danger', 'Invalid payment ID.');
+    redirect(BASE_PATH . '/modules/expenses/payment_list.php');
+}
+
+$stmt = db()->prepare("
+    SELECT p.*, ec.category_name, coa.account_name,
+           u.full_name AS created_by_name,
+           ua.full_name AS approved_by_name
+    FROM payments p
+    LEFT JOIN expense_categories ec ON ec.id = p.category_id
+    LEFT JOIN chart_of_accounts coa ON coa.id = p.account_id
+    LEFT JOIN users u               ON u.id   = p.created_by
+    LEFT JOIN users ua              ON ua.id  = p.approved_by
+    WHERE p.id = ? AND p.deleted_at IS NULL
+");
+$stmt->execute([$id]);
+$payment = $stmt->fetch();
+
+if (!$payment) {
+    setFlash('danger', 'Payment not found or has been deleted.');
+    redirect(BASE_PATH . '/modules/expenses/payment_list.php');
+}
+
+$masjid      = getMasjidProfile();
+$amountWords = numberToWords((float)$payment['amount']);
+$isPrint     = isset($_GET['print']);
+
 require_once __DIR__ . '/../../templates/header.php';
 ?>
 <div class="wrapper d-flex">
@@ -49,90 +94,205 @@ require_once __DIR__ . '/../../templates/header.php';
 <?php require_once __DIR__ . '/../../templates/navbar.php'; ?>
 <div class="content-area p-3 p-md-4" style="margin-top:56px;">
 
-<div class="page-header no-print">
-    <div><h4><i class="bi bi-receipt me-2 text-danger"></i>Payment Voucher</h4>
-    <nav aria-label="breadcrumb"><ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="<?= BASE_PATH ?>/dashboard.php">Home</a></li>
-        <li class="breadcrumb-item"><a href="payment_list.php">Payments</a></li>
-        <li class="breadcrumb-item active"><?= htmlspecialchars($payment['voucher_no']) ?></li>
-    </ol></nav></div>
-    <div class="d-flex gap-2">
-        <button class="btn btn-sm btn-outline-secondary" onclick="window.print()"><i class="bi bi-printer me-1"></i>Print</button>
-        <a href="payment_list.php" class="btn btn-sm btn-outline-primary"><i class="bi bi-arrow-left me-1"></i>Back</a>
+    <!-- Breadcrumb (hidden on print) -->
+    <nav aria-label="breadcrumb" class="mb-3 d-print-none">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="<?= BASE_PATH ?>/dashboard.php">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="<?= BASE_PATH ?>/modules/expenses/payment_list.php">Payments</a></li>
+            <li class="breadcrumb-item active">View Voucher</li>
+        </ol>
+    </nav>
+
+    <!-- Action buttons (hidden on print) -->
+    <div class="d-flex gap-2 mb-3 d-print-none">
+        <button onclick="window.print()" class="btn btn-primary">
+            <i class="bi bi-printer me-1"></i> Print Voucher
+        </button>
+        <a href="<?= BASE_PATH ?>/modules/expenses/add_payment.php?edit=<?= $payment['id'] ?>"
+           class="btn btn-outline-warning">
+            <i class="bi bi-pencil me-1"></i> Edit
+        </a>
+        <a href="<?= BASE_PATH ?>/modules/expenses/payment_list.php" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Back to List
+        </a>
     </div>
-</div>
 
-<!-- Voucher -->
-<div class="row justify-content-center">
-    <div class="col-12 col-md-8">
-        <div class="card shadow voucher-box">
-            <div class="card-body p-4">
-                <!-- Header -->
-                <div class="text-center border-bottom pb-3 mb-3">
-                    <?php if (!empty($profile['logo'])): ?>
-                    <img src="<?= BASE_PATH ?>/assets/uploads/<?= htmlspecialchars($profile['logo']) ?>" height="60" class="mb-2">
+    <!-- Payment Voucher -->
+    <div class="card shadow payment-voucher" id="paymentVoucher">
+        <div class="card-body p-4 p-md-5">
+
+            <!-- Header -->
+            <div class="row align-items-center mb-4 border-bottom pb-3">
+                <div class="col-auto">
+                    <?php if (!empty($masjid['logo'])): ?>
+                    <img src="<?= BASE_PATH ?>/assets/images/<?= htmlspecialchars($masjid['logo']) ?>"
+                         alt="Logo" style="height:70px;">
+                    <?php else: ?>
+                    <div class="bg-danger text-white rounded d-flex align-items-center justify-content-center"
+                         style="width:70px;height:70px;font-size:1.8rem;">
+                        <i class="bi bi-building"></i>
+                    </div>
                     <?php endif; ?>
-                    <h4 class="fw-bold mb-0"><?= htmlspecialchars($profile['masjid_name'] ?? 'Masjid ERP') ?></h4>
-                    <p class="text-muted small mb-0"><?= htmlspecialchars($profile['address'] ?? '') ?></p>
-                    <p class="text-muted small mb-0"><?= htmlspecialchars($profile['phone'] ?? '') ?></p>
-                    <h5 class="mt-2 fw-bold text-danger">PAYMENT VOUCHER</h5>
                 </div>
-
-                <!-- Details -->
-                <div class="row mb-3">
-                    <div class="col-6">
-                        <table class="table table-sm table-borderless mb-0">
-                            <tr><td class="fw-semibold">Voucher No:</td><td><?= htmlspecialchars($payment['voucher_no']) ?></td></tr>
-                            <tr><td class="fw-semibold">Date:</td><td><?= formatDate($payment['date']) ?></td></tr>
-                            <tr><td class="fw-semibold">Payee:</td><td><?= htmlspecialchars($payment['payee_name']) ?></td></tr>
-                        </table>
-                    </div>
-                    <div class="col-6">
-                        <table class="table table-sm table-borderless mb-0">
-                            <tr><td class="fw-semibold">Category:</td><td><?= htmlspecialchars($payment['category_name'] ?? '-') ?></td></tr>
-                            <tr><td class="fw-semibold">Account:</td><td><?= htmlspecialchars($payment['account_name'] ?? '-') ?></td></tr>
-                            <tr><td class="fw-semibold">Mode:</td><td><?= strtoupper($payment['payment_mode']) ?></td></tr>
-                        </table>
-                    </div>
+                <div class="col text-center">
+                    <h3 class="mb-0 fw-bold text-danger">
+                        <?= htmlspecialchars($masjid['masjid_name'] ?? 'Masjid ERP') ?>
+                    </h3>
+                    <?php if (!empty($masjid['address'])): ?>
+                    <p class="text-muted mb-0 small"><?= htmlspecialchars($masjid['address']) ?></p>
+                    <?php endif; ?>
+                    <?php if (!empty($masjid['phone'])): ?>
+                    <p class="text-muted mb-0 small">Tel: <?= htmlspecialchars($masjid['phone']) ?></p>
+                    <?php endif; ?>
                 </div>
-
-                <?php if ($payment['cheque_no']): ?>
-                <div class="mb-2"><strong>Cheque No:</strong> <?= htmlspecialchars($payment['cheque_no']) ?></div>
-                <?php endif; ?>
-
-                <div class="bg-light rounded p-3 mb-3 text-center">
-                    <div class="small text-muted">Amount</div>
-                    <div class="fs-3 fw-bold text-danger">₹ <?= number_format($payment['amount'], 2) ?></div>
-                    <div class="small text-muted fst-italic"><?= numberToWords($payment['amount']) ?></div>
-                </div>
-
-                <?php if ($payment['remarks']): ?>
-                <div class="mb-3"><strong>Narration:</strong> <?= htmlspecialchars($payment['remarks']) ?></div>
-                <?php endif; ?>
-
-                <!-- Signatures -->
-                <div class="row mt-4 pt-3 border-top">
-                    <div class="col-4 text-center">
-                        <div class="border-top pt-2 mt-4 small">Prepared By</div>
-                        <div class="small text-muted"><?= htmlspecialchars($payment['created_by_name'] ?? '') ?></div>
+                <div class="col-auto text-end">
+                    <div class="bg-danger text-white px-3 py-2 rounded text-center">
+                        <div class="small fw-semibold">VOUCHER</div>
+                        <div class="fs-6 fw-bold"><?= htmlspecialchars($payment['voucher_no']) ?></div>
                     </div>
-                    <div class="col-4 text-center">
-                        <div class="border-top pt-2 mt-4 small">Approved By</div>
-                        <div class="small text-muted"><?= htmlspecialchars($payment['approver_name'] ?? '') ?></div>
-                    </div>
-                    <div class="col-4 text-center">
-                        <div class="border-top pt-2 mt-4 small">Received By</div>
-                    </div>
-                </div>
-
-                <div class="text-center mt-3 text-muted" style="font-size:0.7rem;">
-                    This is a computer-generated voucher. Printed on <?= date('d/m/Y H:i') ?>
                 </div>
             </div>
+
+            <!-- Ribbon -->
+            <div class="bg-light border rounded p-2 mb-4 text-center">
+                <span class="text-uppercase fw-bold text-secondary" style="letter-spacing:2px;">
+                    Payment Voucher
+                </span>
+            </div>
+
+            <!-- Details Grid -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <table class="table table-borderless table-sm mb-0">
+                        <tr>
+                            <td class="text-muted fw-semibold" style="width:40%">Voucher No</td>
+                            <td class="fw-bold">: <?= htmlspecialchars($payment['voucher_no']) ?></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted fw-semibold">Date</td>
+                            <td class="fw-bold">: <?= formatDate($payment['date'], 'd/m/Y') ?></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted fw-semibold">Payee Name</td>
+                            <td class="fw-bold">: <?= htmlspecialchars($payment['payee_name']) ?></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted fw-semibold">Category</td>
+                            <td>: <?= htmlspecialchars($payment['category_name'] ?? '-') ?></td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <table class="table table-borderless table-sm mb-0">
+                        <tr>
+                            <td class="text-muted fw-semibold" style="width:40%">Paid From</td>
+                            <td>: <?= htmlspecialchars($payment['account_name'] ?? '-') ?></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted fw-semibold">Payment Mode</td>
+                            <td class="text-capitalize">: <?= htmlspecialchars($payment['payment_mode']) ?></td>
+                        </tr>
+                        <?php if ($payment['cheque_no']): ?>
+                        <tr>
+                            <td class="text-muted fw-semibold">Cheque No</td>
+                            <td>: <?= htmlspecialchars($payment['cheque_no']) ?></td>
+                        </tr>
+                        <?php endif; ?>
+                        <?php if ($payment['bank_ref']): ?>
+                        <tr>
+                            <td class="text-muted fw-semibold">Bank Ref / UTR</td>
+                            <td>: <?= htmlspecialchars($payment['bank_ref']) ?></td>
+                        </tr>
+                        <?php endif; ?>
+                        <tr>
+                            <td class="text-muted fw-semibold">Approved By</td>
+                            <td>: <?= htmlspecialchars($payment['approved_by_name'] ?? '-') ?></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Amount Box -->
+            <div class="border border-2 border-danger rounded p-3 mb-4">
+                <div class="row align-items-center">
+                    <div class="col-md-7">
+                        <div class="text-muted small fw-semibold mb-1">Amount in Words</div>
+                        <div class="fw-bold text-dark fs-6">
+                            <?= htmlspecialchars($amountWords) ?>
+                        </div>
+                    </div>
+                    <div class="col-md-5 text-md-end mt-2 mt-md-0">
+                        <div class="text-muted small fw-semibold mb-1">Amount Paid</div>
+                        <div class="display-6 fw-bold text-danger">
+                            ₹ <?= number_format((float)$payment['amount'], 2) ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Narration -->
+            <?php if (!empty($payment['remarks'])): ?>
+            <div class="mb-4">
+                <span class="fw-semibold text-muted">Narration:</span>
+                <span><?= htmlspecialchars($payment['remarks']) ?></span>
+            </div>
+            <?php endif; ?>
+
+            <!-- Signatures -->
+            <div class="row mt-5 pt-4 border-top">
+                <div class="col-md-4 text-center">
+                    <div style="border-top:1px solid #333;display:inline-block;width:160px;padding-top:4px;">
+                        Prepared By
+                    </div>
+                    <div class="small text-muted mt-1">
+                        <?= htmlspecialchars($payment['created_by_name'] ?? 'System') ?>
+                    </div>
+                </div>
+                <div class="col-md-4 text-center">
+                    <div style="border-top:1px solid #333;display:inline-block;width:160px;padding-top:4px;">
+                        Approved By
+                    </div>
+                    <div class="small text-muted mt-1">
+                        <?= htmlspecialchars($payment['approved_by_name'] ?? '-') ?>
+                    </div>
+                </div>
+                <div class="col-md-4 text-center">
+                    <div style="border-top:1px solid #333;display:inline-block;width:160px;padding-top:4px;">
+                        Receiver's Signature
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-4 text-muted small">
+                <em>This is a computer-generated voucher. No physical signature required unless signed above.</em>
+            </div>
+
         </div>
     </div>
-</div>
 
-</div></div></div>
-<?php require_once __DIR__ . '/../../templates/footer.php'; ?>
-<?php if ($autoPrint): ?><script>window.onload = function() { window.print(); }</script><?php endif; ?>
+</div><!-- content-area -->
+</div><!-- main-content -->
+</div><!-- wrapper -->
+
+<?php
+$extraJs = <<<'JS'
+<script>
+$(function () {
+    var urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('print') === '1') {
+        setTimeout(function () { window.print(); }, 500);
+    }
+});
+</script>
+<style>
+@media print {
+    .d-print-none  { display: none !important; }
+    .main-content  { margin: 0 !important; }
+    .content-area  { margin-top: 0 !important; padding: 0 !important; }
+    .wrapper       { display: block !important; }
+    .payment-voucher { box-shadow: none !important; border: none !important; }
+    body { font-size: 13px; }
+}
+</style>
+JS;
+require_once __DIR__ . '/../../templates/footer.php';
