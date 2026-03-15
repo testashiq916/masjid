@@ -1,0 +1,260 @@
+/* ============================================================
+   MASJID ERP - Custom Stylesheet
+   ============================================================ */
+
+:root {
+    --sidebar-width: 260px;
+    --sidebar-bg: #1a2035;
+    --sidebar-hover: #2a3050;
+    --sidebar-active: #1976d2;
+    --primary: #1976d2;
+    --navbar-height: 56px;
+}
+
+/* ---- Body & Layout ---------------------------------------- */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f4f6fa;
+    font-size: 0.9rem;
+}
+
+.wrapper {
+    min-height: 100vh;
+}
+
+/* ---- Sidebar ---------------------------------------------- */
+.sidebar {
+    width: var(--sidebar-width);
+    min-height: 100vh;
+    background: var(--sidebar-bg);
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1030;
+    transition: transform 0.3s ease;
+    overflow-y: auto;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+}
+
+.sidebar.collapsed {
+    transform: translateX(-100%);
+}
+
+.sidebar .nav-link {
+    color: rgba(255,255,255,0.8);
+    padding: 0.45rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+}
+
+.sidebar .nav-link:hover {
+    background: var(--sidebar-hover);
+    color: #fff;
+}
+
+.sidebar .nav-link.active {
+    background: var(--sidebar-active);
+    color: #fff;
+    font-weight: 500;
+}
+
+.sidebar-brand {
+    background: rgba(0,0,0,0.2);
+    min-height: var(--navbar-height);
+}
+
+.sidebar-menu {
+    max-height: calc(100vh - 70px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+/* ---- Main Content ----------------------------------------- */
+.main-content {
+    margin-left: var(--sidebar-width);
+    transition: margin 0.3s ease;
+    min-height: 100vh;
+}
+
+.main-content.full-width {
+    margin-left: 0;
+}
+
+.content-area {
+    min-height: calc(100vh - var(--navbar-height));
+}
+
+/* ---- Cards & Widgets -------------------------------------- */
+.stat-card {
+    border-radius: 12px;
+    border: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+    overflow: hidden;
+}
+
+.stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1) !important;
+}
+
+.stat-card .card-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.stat-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.8;
+}
+
+/* ---- Tables ----------------------------------------------- */
+.table th {
+    background-color: #f8f9fc;
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-top: none;
+    white-space: nowrap;
+}
+
+.table-hover tbody tr:hover {
+    background-color: #eef4ff;
+}
+
+/* ---- Page Header ------------------------------------------ */
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.page-header h4, .page-header h5 {
+    margin: 0;
+    font-weight: 700;
+    color: #2d3748;
+}
+
+.breadcrumb {
+    margin-bottom: 0;
+    font-size: 0.8rem;
+}
+
+/* ---- Forms ------------------------------------------------ */
+.form-label {
+    font-weight: 500;
+    color: #4a5568;
+    font-size: 0.85rem;
+}
+
+.required-star::after {
+    content: ' *';
+    color: red;
+}
+
+/* ---- Print Voucher ---------------------------------------- */
+@media print {
+    .sidebar, .navbar, .no-print, .btn, .breadcrumb, .page-header-actions {
+        display: none !important;
+    }
+    .main-content {
+        margin-left: 0 !important;
+    }
+    .print-area {
+        padding: 0;
+    }
+    .voucher-box {
+        border: 1px solid #333;
+        padding: 20px;
+        margin: 0;
+        max-width: 100%;
+    }
+}
+
+/* ---- Badge tweaks ----------------------------------------- */
+.badge-pending  { background-color: #ffc107; color: #000; }
+.badge-paid     { background-color: #198754; }
+.badge-overdue  { background-color: #dc3545; }
+.badge-active   { background-color: #0d6efd; }
+.badge-inactive { background-color: #6c757d; }
+
+/* ---- Responsive ------------------------------------------- */
+@media (max-width: 991.98px) {
+    .sidebar {
+        transform: translateX(-100%);
+    }
+    .sidebar.show {
+        transform: translateX(0);
+    }
+    .main-content {
+        margin-left: 0 !important;
+    }
+}
+
+/* ---- Scrollbar -------------------------------------------- */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: #bbb; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #888; }
+
+/* ---- Notifications ---------------------------------------- */
+.notification-count { font-size: 0.6rem; min-width: 16px; }
+
+/* ---- Summary cards on reports ----------------------------- */
+.report-summary {
+    background: linear-gradient(135deg, #1976d2, #42a5f5);
+    color: white;
+    border-radius: 12px;
+    padding: 1rem;
+}
+
+/* ---- Login page ------------------------------------------- */
+.login-wrapper {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #1a2035 0%, #1976d2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-card {
+    background: white;
+    border-radius: 16px;
+    padding: 2.5rem 2rem;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    width: 100%;
+    max-width: 420px;
+}
+
+.login-logo {
+    width: 72px;
+    height: 72px;
+    background: linear-gradient(135deg, #1976d2, #42a5f5);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: white;
+    margin: 0 auto 1rem;
+}
